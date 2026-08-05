@@ -19,6 +19,11 @@ classifiers = [
     "Programming Language :: Python :: 3",
 ]
 requires-python = ">=3.8"
+
+dependencies = [
+    "numpy>=1.20",
+    "sympy>=1.10",
+]
 # Declare any run-time dependencies that should be installed with the package.
 #dependencies = [
 #    "importlib-resources;python_version<'3.10'",
@@ -56,8 +61,8 @@ zip-safe = false
 # with include-package-data = false and namespaces = false.
 include-package-data = false
 [tool.setuptools.packages.find]
-namespaces = false
-where = ["."]
+# namespaces = false
+where = ["alqemi"]
 
 # Ref https://setuptools.pypa.io/en/latest/userguide/datafiles.html#package-data
 [tool.setuptools.package-data]
@@ -82,3 +87,13 @@ default-tag = "1.0.0"
 
 [tool.versioningit.write]
 file = "alqemi/_version.py"
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = "-ra -q --durations=5"
+testpaths = [
+    "alqemi/tests",
+]
+markers = [
+  "even : marks tests that have even number of Mul string"
+  ]
