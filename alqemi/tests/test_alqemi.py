@@ -15,6 +15,7 @@ def test_alqemi_imported():
     """Sample test, will always pass so long as import statement worked."""
     assert "alqemi" in sys.modules
 
+# alqemi_reduce testing
 def test_anticommutator_delta():
     """
     Tests Helgaker anticommutator identities
@@ -205,3 +206,5 @@ def test_3_3_anticommutator():
     print('EXPECTED: \n', expected)
 
     assert expected.compare(result) == 0
+
+

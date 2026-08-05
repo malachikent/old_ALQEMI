@@ -4,7 +4,7 @@ from sympy import Sum, Add, Mul, init_printing, pprint
 from alqemi.core.tools import  FermionAntiCommutator
 
 init_printing()
-def alqemi_reduce(expr, debug=False):
+def alqemi_reduce(expr):
     """
     Custom rule to intercept a Commutator and expand it 
     based on the number of operators (parity) in the strings.
