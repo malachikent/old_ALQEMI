@@ -219,4 +219,39 @@ def alqemi_reduce(expr):
 
     return expr
 
+# Killer conditions for custom reduction code
+def is_Lkiller(A):
+    if A.is_annihilator and A.is_below_fermi:
+        return True
+    elif A.is_creator and A.is_above_fermi:
+        return True
+    else:
+        return False
+    
+def is_Rkiller(A):
+    if A.is_creator and A.is_below_fermi:
+        return True
+    elif A.is_annihilator and A.is_above_fermi:
+        return True
+    else:
+        return False
 
+# Vacuum Expectation reduction
+
+def HFHF(expr):
+
+    # --- 1. BASE CASES & SYMPY HIERARCHY ---
+    if not hasattr(expr, 'args') or not expr.args:
+        return expr
+
+    if not isinstance(expr, (AntiCommutator, Commutator, Sum, Add, Mul)):
+        return expr
+
+    if isinstance(expr, Sum):
+        return Sum(HFHF(expr.args[0]), *expr.args[1:])
+
+    if isinstance(expr, Add):
+        return Add(*[HFHF(arg) for arg in expr.args])
+
+    if isinstance(expr, Mul):
+        return Mul(*[HFHF(arg) for arg in expr.args])

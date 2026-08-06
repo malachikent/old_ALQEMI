@@ -8,12 +8,66 @@ import pytest
 from sympy import Dummy
 from sympy.physics.secondquant import F, Fd, Commutator, KroneckerDelta
 from sympy import sympify
-from alqemi.core.tools import FermionAntiCommutator
-from alqemi.algebra.rules import alqemi_reduce
+from alqemi.core.tools import FermionAntiCommutator, DoubleBar
+from alqemi.algebra.rules import alqemi_reduce 
 
 def test_alqemi_imported():
     """Sample test, will always pass so long as import statement worked."""
     assert "alqemi" in sys.modules
+
+def test_doublebar():
+    """
+    Tests double bar integral structure within Dirac notation is functional
+    """
+    p, q, r, s = [Dummy(x) for x in "pqrs"]
+
+    zero           = DoubleBar(p, p, r, s)
+
+    front_antisymm = DoubleBar(q, p, r, s)
+
+    back_antisymm  = DoubleBar(p, q, s, r)
+
+    herm           = DoubleBar(r, s, p, q)
+
+    assert zero == 0
+    assert front_antisymm == - DoubleBar(p, q, r, s)
+    assert back_antisymm  == - DoubleBar(p, q, r, s)
+    assert herm           == DoubleBar(p, q, r, s)
+
+def test_Lkiller():
+    """
+    Tests helper function for expression reduction
+    """
+    p = Dummy('p', below_fermi=True)
+    q = Dummy('q', above_fermi=True)
+
+
+    positive_annihilator = F(p).is_left_killer
+    negative_annihilator = F(q).is_left_killer
+
+    positive_creator = Fd(q).is_left_killer
+    negative_creator = Fd(p).is_left_killer
+
+    assert positive_annihilator == True and positive_creator == True
+    assert negative_annihilator == False and negative_creator == False
+
+def test_Rkiller():
+    """
+    Tests helper function for expression reduction
+    """
+    p = Dummy('p', below_fermi=True)
+    q = Dummy('q', above_fermi=True)
+
+
+    negative_annihilator = F(p).is_right_killer
+    positive_annihilator = F(q).is_right_killer
+
+    negative_creator = Fd(q).is_right_killer
+    positive_creator = Fd(p).is_right_killer
+
+    assert positive_annihilator == True and positive_creator == True
+    assert negative_annihilator == False and negative_creator == False
+
 
 # alqemi_reduce testing
 def test_anticommutator_delta():
@@ -89,8 +143,8 @@ def test_1_2_commutator():
 # @pytest.mark.even
 def test_2_2_commutator():
     """
-    Tests the helgaker_expansion rule for an [even, even] operator string.
-    Example: [p^\dagger q, r^\dagger s] where both sides have 2 operators.
+    Tests the helgaker_expansion rule for an [even, even] operator string. 
+    Example: [p^+ q, r^+ s] where both sides have 2 operators.
     """
     # 1. Define distinct dummy indices to prevent accidental trace collapses
     p, q, r, s = [Dummy(x) for x in "pqrs"]
@@ -117,7 +171,7 @@ def test_2_2_commutator():
 def test_2_4_commutator():
     """
     Tests the helgaker_expansion rule for an [even, even] operator string.
-    Example: [p^+ q, r^+ s] where both sides have 2 operators.
+Example: [p^+ q, r^+ s] where both sides have 2 operators.
     """
     # 1. Define distinct dummy indices to prevent accidental trace collapses
     p, q, r, s, m, n = [Dummy(x) for x in "pqrsmn"]
@@ -134,7 +188,7 @@ def test_2_4_commutator():
 
     # 4. Execute your custom logic
     result = alqemi_reduce(comm)
-    print('RESULT:', result.expand())
+    # print('RESULT:', result.expand())
 
     # 5. Construct the strictly expected SymPy tree for the even-even rule.
     expected = (
@@ -166,7 +220,7 @@ def test_2_com_2_2_commutator():
     comm = Commutator(left_string_1,Commutator(left_string_2, right_string))
 
     result = alqemi_reduce(comm).doit().expand()
-    print('RESULT: ', result)
+    # print('RESULT: ', result)
 
     expected = (
             KroneckerDelta(s,m)*KroneckerDelta(q,r)*Fd(p)*F(n) - 
@@ -175,7 +229,7 @@ def test_2_com_2_2_commutator():
             KroneckerDelta(r,n)*KroneckerDelta(p,s)*Fd(m)*F(q)
             )
     expected = expected.doit().expand()
-    print('EXPECTED:', expected)
+    # print('EXPECTED:', expected)
 
     assert expected.compare(result) == 0
 
@@ -194,7 +248,7 @@ def test_3_3_anticommutator():
     comm = FermionAntiCommutator(left_string,right_string)
 
     result = alqemi_reduce(comm).doit().expand()
-    print('RESULT: \n', result)
+    # print('RESULT: \n', result)
     expected = (
             KroneckerDelta(m, q) * F(s) * Fd(p) * Fd(r) * F(n) +
             KroneckerDelta(n, p) * F(s) * Fd(m) * F(q) * Fd(r) +
@@ -203,7 +257,7 @@ def test_3_3_anticommutator():
             KroneckerDelta(r, s) * Fd(p) * F(q) * Fd(m) * F(n)
         )
     expected = expected.doit().expand()
-    print('EXPECTED: \n', expected)
+    # print('EXPECTED: \n', expected)
 
     assert expected.compare(result) == 0
 

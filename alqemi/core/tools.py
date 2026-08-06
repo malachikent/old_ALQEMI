@@ -1,22 +1,38 @@
-from sympy import Sum, Add, Mul, Expr, sympify, S, Tuple 
+from sympy import Sum, Add, Mul, Expr, sympify, S, Tuple, Function 
 from sympy.core.sorting import default_sort_key
 from sympy.physics.quantum import AntiCommutator, Commutator
-from sympy.physics.secondquant import F, Fd, wicks, evaluate_deltas
+from sympy.physics.secondquant import CreateFermion, AnnihilateFermion, F, Fd, evaluate_deltas
 from sympy import KroneckerDelta
 from sympy.combinatorics import Permutation
 
-class StrictCommutator(Commutator):
-    """ Bypasses SymPy's native Commutator auto-evaluating to 0. """
-    is_commutative = False
-    
-    def __new__(cls, a, b):
-        # By directly returning Expr.__new__, we skip the 0-check completely!
-        return Expr.__new__(cls, sympify(a), sympify(b))
+@property
+def is_left_killer(self):
 
-    def _eval_expand_commutator(self, **hints):
-        # Teaches SymPy how to physically tear down the bracket!
-        A, B = self.args
-        return A * B - B * A
+    if isinstance(self, CreateFermion) and self.is_above_fermi:
+        return True
+    
+    if isinstance(self,AnnihilateFermion) and self.is_below_fermi:
+        return True
+
+    else:
+        return False
+
+@property 
+def is_right_killer(self):
+
+    if isinstance(self, CreateFermion) and self.is_below_fermi:
+        return True
+    
+    if isinstance(self,AnnihilateFermion) and self.is_above_fermi:
+        return True
+
+    else:
+        return False
+AnnihilateFermion.is_left_killer = is_left_killer
+AnnihilateFermion.is_right_killer = is_right_killer
+
+CreateFermion.is_left_killer = is_left_killer
+CreateFermion.is_right_killer = is_right_killer
 
 class FermionAntiCommutator(AntiCommutator):
     """
@@ -54,47 +70,57 @@ class FermionAntiCommutator(AntiCommutator):
         # Fallback: If it's a string of operators, do the standard AB + BA
         return super().doit(**hints)
 
-class DoubleBarIntegral(Expr):
+class DoubleBar(Function):
     """
-    Represents the antisymmetrized two-electron integral <pq||rs>.
-    Self-canonicalizes upon creation and enforces Pauli exclusion.
+    Symbolic representation of an antisymmetrized two-electron integral: <pq || rs>
     """
-    is_commutative = True 
-
-    def __new__(cls, *args):
-        # Safely handle SymPy's internal argument flattening!
-        if len(args) == 2:
-            bra_indices, ket_indices = args
-        elif len(args) == 4:
-            bra_indices = args[:2]
-            ket_indices = args[2:]
-        else:
-            raise ValueError(f"DoubleBarIntegral expects 2 Tuples or 4 Indices. Got: {args}")
-
-        bra = tuple(sympify(i) for i in bra_indices)
-        ket = tuple(sympify(i) for i in ket_indices)
-
-        # 1. Pauli Exclusion Check
-        if len(set(bra)) < len(bra) or len(set(ket)) < len(ket):
+    
+    @classmethod
+    def eval(cls, p, q, r, s):
+        # 1. Pauli Exclusion: If any two indices in the same bra/ket match, it is strictly 0
+        if p == q or r == s:
             return S.Zero
-
-        # 2. Sort using SymPy's native sorting function
-        bra_sorted = tuple(sorted(bra, key=default_sort_key))
-        ket_sorted = tuple(sorted(ket, key=default_sort_key))
-
-        # 3. Determine the parity of the permutations
-        bra_perm = Permutation([bra.index(x) for x in bra_sorted])
-        ket_perm = Permutation([ket.index(x) for x in ket_sorted])
+            
+        sign = 1
+        p1, q1, r1, s1 = p, q, r, s
         
-        sign = S.NegativeOne**(bra_perm.parity() + ket_perm.parity())
-
-        # 4. Create the strictly ordered object using SymPy Tuples
-        obj = Expr.__new__(cls, Tuple(*bra_sorted), Tuple(*ket_sorted))
+        # 2. Antisymmetry in the bra: <qp || rs> = -<pq || rs>
+        # We sort them lexicographically so 'p' always comes before 'q'
+        if default_sort_key(p1) > default_sort_key(q1):
+            p1, q1 = q1, p1
+            sign *= -1
+            
+        # 3. Antisymmetry in the ket: <pq || sr> = -<pq || rs>
+        if default_sort_key(r1) > default_sort_key(s1):
+            r1, s1 = s1, r1
+            sign *= -1
+            
+        # 4. Hermitian Symmetry (for real orbitals): <rs || pq> = <pq || rs>
+        # We compare the bra pair to the ket pair and sort them
+        pair1 = (default_sort_key(p1), default_sort_key(q1))
+        pair2 = (default_sort_key(r1), default_sort_key(s1))
         
-        return sign * obj
+        if pair1 > pair2:
+            p1, q1, r1, s1 = r1, s1, p1, q1
+            # Swapping the bra and ket does not induce a sign change
+            
+        # 5. The Output Decision
+        # If the indices had to be rearranged, return the newly sorted object multiplied by the sign
+        if (p1, q1, r1, s1) != (p, q, r, s):
+            return sign * cls(p1, q1, r1, s1)
+            
+        # If the indices were already perfectly sorted, return None. 
+        # This tells SymPy: "Everything is fine, instantiate the function normally."
+        return None
 
+    # --- Pretty Printing Methods ---
+    
+    def _sympystr(self, printer):
+        """Terminal string representation: <pq||rs>"""
+        p, q, r, s = [printer._print(arg) for arg in self.args]
+        return f"<{p}{q}||{r}{s}>"
+        
     def _latex(self, printer):
-        bra_str = "".join(printer._print(i) for i in self.args[0])
-        ket_str = "".join(printer._print(i) for i in self.args[1])
-        return rf"\langle {bra_str} || {ket_str} \rangle"
-
+        """Jupyter Notebook / LaTeX representation: \langle pq || rs \rangle"""
+        p, q, r, s = [printer._print(arg) for arg in self.args]
+        return rf"\langle {p} {q} || {r} {s} \rangle"
