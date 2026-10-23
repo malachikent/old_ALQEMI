@@ -247,7 +247,7 @@ class TestOracleAxioms:
         assert len(list(fock.assignments([P, P, Q]))) == 4 * 4
 
     def test_cre_ann_anticommutator_is_delta(self, fock):
-        # [a_P, a†_Q]_+ = delta_PQ
+        # HJO (1.2.29): [a†_P, a_Q]_+ = delta_PQ (written here as [a_P, a†_Q]_+)
         bad = first_mismatch(
             fock, [P, Q],
             lambda g: anticommutator(fock.op(ann(P), g), fock.op(cre(Q), g)),
@@ -297,7 +297,7 @@ class TestOracleAxioms:
 # =========================================================================
 class TestContractExamples:
     def test_example_1(self, fock):
-        # [a†_P, a†_Q a_R] = -delta_PR a†_Q
+        # HJO (1.8.11): [a†_P, a†_Q a_R] = -delta_PR a†_Q
         bad = first_mismatch(
             fock, [P, Q, R],
             lambda g: commutator(fock.op(cre(P), g), fock.string(E(Q, R), g)),
@@ -306,7 +306,7 @@ class TestContractExamples:
         assert bad is None, bad
 
     def test_example_2(self, fock):
-        # [a_P, a†_Q a_R] = delta_PQ a_R
+        # HJO (1.8.12): [a_P, a†_Q a_R] = delta_PQ a_R
         bad = first_mismatch(
             fock, [P, Q, R],
             lambda g: commutator(fock.op(ann(P), g), fock.string(E(Q, R), g)),
@@ -315,7 +315,7 @@ class TestContractExamples:
         assert bad is None, bad
 
     def test_example_3(self, fock):
-        # [E_PQ, E_RS] = delta_QR E_PS - delta_PS E_RQ
+        # HJO (1.8.14): [E_PQ, E_RS] = delta_QR E_PS - delta_PS E_RQ
         bad = first_mismatch(
             fock, [P, Q, R, S],
             lambda g: commutator(fock.string(E(P, Q), g), fock.string(E(R, S), g)),
@@ -325,7 +325,7 @@ class TestContractExamples:
         assert bad is None, bad
 
     def test_example_4(self, fock):
-        # [E_PQ, E_RS E_MN] = d_QR E_PS E_MN - d_PS E_RQ E_MN + d_QM E_RS E_PN - d_PN E_RS E_MQ
+        # HJO (1.8.15): [E_PQ, E_RS E_MN] = d_QR E_PS E_MN - d_PS E_RQ E_MN + d_QM E_RS E_PN - d_PN E_RS E_MQ
         st = fock.string
         bad = first_mismatch(
             fock, [P, Q, R, S, M, N],
@@ -338,7 +338,7 @@ class TestContractExamples:
         assert bad is None, bad
 
     def test_example_5(self, fock):
-        # [E_PQ, [E_RS, E_MN]] = d_SM d_QR E_PN - d_SM d_PN E_RQ - d_RN d_QM E_PS + d_RN d_PS E_MQ
+        # HJO (1.8.16): [E_PQ, [E_RS, E_MN]] = d_SM d_QR E_PN - d_SM d_PN E_RQ - d_RN d_QM E_PS + d_RN d_PS E_MQ
         st = fock.string
         bad = first_mismatch(
             fock, [P, Q, R, S, M, N],
@@ -347,6 +347,22 @@ class TestContractExamples:
             - delta(S, M, g) * delta(P, N, g) * st(E(R, Q), g)
             - delta(R, N, g) * delta(Q, M, g) * st(E(P, S), g)
             + delta(R, N, g) * delta(P, S, g) * st(E(M, Q), g),
+        )
+        assert bad is None, bad
+
+
+    def test_solution_1S_2_4(self, fock):
+        # HJO Solution 1.2, eq (1S.2.4). Note the RHS is NOT normal ordered
+        # (a_R a†_P); ALQEMI must not reorder it.
+        # [a†_P a†_Q, a_R a_S] = d_QR a†_P a_S - d_PR a†_Q a_S + d_QS a_R a†_P - d_PS a_R a†_Q
+        st = fock.string
+        bad = first_mismatch(
+            fock, [P, Q, R, S],
+            lambda g: commutator(st(cre(P) * cre(Q), g), st(ann(R) * ann(S), g)),
+            lambda g: delta(Q, R, g) * st(cre(P) * ann(S), g)
+            - delta(P, R, g) * st(cre(Q) * ann(S), g)
+            + delta(Q, S, g) * st(ann(R) * cre(P), g)
+            - delta(P, S, g) * st(ann(R) * cre(Q), g),
         )
         assert bad is None, bad
 
@@ -394,6 +410,13 @@ class TestContractIdentities:
         A, B = mats[0], mats[1 : 1 + n]
         alt = sum((-1) ** k * self._prod(B[:k] + [anticommutator(A, B[k])] + B[k + 1 :]) for k in range(n))
         assert not np.allclose(commutator(A, self._prod(B)), alt)
+
+    def test_jacobi_1_8_17(self, mats):
+        # Consistency check only: HJO note 1.8.17 relates expressions of the SAME
+        # rank, so it is never used as an expansion rule in ALQEMI.
+        A, B, C = mats[:3]
+        total = commutator(A, commutator(B, C)) + commutator(C, commutator(A, B)) + commutator(B, commutator(C, A))
+        assert np.allclose(total, 0)
 
     def test_eq_1_8_8_both_forms(self, mats):
         A, B1, B2 = mats[:3]
